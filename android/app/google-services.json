@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "405854174185",
+    "project_id": "tarek-proj",
+    "storage_bucket": "tarek-proj.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:405854174185:android:f2b8122316f7831263a978",
+        "android_client_info": {
+          "package_name": "com.example.tarek_proj"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_c4lBVlA9lzwbaiFz2kVMGlLTxgLBsss"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
