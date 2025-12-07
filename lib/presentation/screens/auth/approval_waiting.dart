@@ -1,0 +1,232 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:tarek_proj/presentation/screens/home/Choice.dart';
+import 'Login.dart';
+
+class ApprovalWaitingPage extends StatefulWidget {
+  final Widget? targetScreen;
+  const ApprovalWaitingPage({super.key, this.targetScreen});
+
+  @override
+  State<ApprovalWaitingPage> createState() => _ApprovalWaitingPageState();
+}
+
+class _ApprovalWaitingPageState extends State<ApprovalWaitingPage> {
+  bool isLoading = true;
+  String approvalStatus = 'pending';
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkApprovalStatus();
+    // Check status every 30 seconds
+    _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _checkApprovalStatus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkApprovalStatus() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _navigateToLogin();
+        return;
+      }
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        final status = doc.data()?['approvalStatus'] ?? 'pending';
+        setState(() {
+          approvalStatus = status;
+          isLoading = false;
+        });
+
+        if (status == 'approved') {
+          _navigateToHome();
+        } else if (status == 'rejected') {
+          _showRejectionDialog();
+        }
+      } else {
+        // User document does not exist, create it now
+        try {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .set({
+            'email': user.email,
+            'uid': user.uid,
+            'approvalStatus': 'pending', // pending, approved, rejected
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+          // After creating, set status to pending and stop loading
+          setState(() {
+            approvalStatus = 'pending';
+            isLoading = false;
+          });
+        } catch (e) {
+          print("Error creating user document: $e");
+          // Handle error appropriately, maybe show a dialog or retry
+          setState(() {
+            isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      print('Error checking approval status: $e');
+    }
+  }
+
+  void _navigateToHome() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+          builder: (context) => widget.targetScreen ?? const Choice()),
+    );
+  }
+
+  void _navigateToLogin() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+    );
+  }
+
+  void _showRejectionDialog() {
+    AwesomeDialog(
+      context: context,
+      dialogType: DialogType.error,
+      animType: AnimType.rightSlide,
+      title: "Registration Rejected",
+      desc:
+          "Your registration has been rejected. Please contact support for more information.",
+      btnOkOnPress: () {
+        _logout();
+      },
+    ).show();
+  }
+
+  Future<void> _logout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      _navigateToLogin();
+    } catch (e) {
+      print('Error logging out: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Registration Status'),
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+          ),
+        ],
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage("images/bg.jpg"),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isLoading)
+                  const CircularProgressIndicator(color: Colors.white)
+                else ...[
+                  const Icon(
+                    Icons.hourglass_empty,
+                    size: 100,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(height: 30),
+                  const Text(
+                    'Registration Pending',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Your registration is being reviewed by our team. You will be notified once your account is approved.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white70,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 40),
+                  ElevatedButton(
+                    onPressed: _checkApprovalStatus,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 15,
+                      ),
+                    ),
+                    child: const Text(
+                      'Check Status',
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextButton(
+                    onPressed: _logout,
+                    child: const Text(
+                      'Logout',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+      floatingActionButton: ElevatedButton(
+        onPressed: _logout,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.indigo,
+          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+        ),
+        child: const Text(
+          'Return to Login',
+          style: TextStyle(fontSize: 16, color: Colors.white),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+}

@@ -30,25 +30,40 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  geolocator: ^11.0.0
-  geocoding:
-  image_picker:
-  image_gallery_saver:
-  image_extensions:
+  flutter_bloc:
+  dio: ^5.4.0
+  equatable:
+  get:
   firebase_core:
   firebase_auth:
+  cloud_firestore:
+  awesome_dialog:
+  url_launcher:
+  shared_preferences:
+  intl:
+  formz:
+  get_it:
+  async:
+  geolocator:
+  geocoding:
+  image_picker:
+  google_mlkit_text_recognition:
+  image_extensions:
   permission_handler:
   email_otp:
   alert_dialog:
-  awesome_dialog:
+  cupertino_icons:
+  faker: ^2.1.0
+  supabase_flutter:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  bloc_test:  # For testing BLoCs/Cubits
+  mocktail:   # For mocking in tests
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

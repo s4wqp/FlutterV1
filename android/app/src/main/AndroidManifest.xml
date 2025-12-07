@@ -9,6 +9,7 @@
 
     <!-- Declare that the app requires GPS -->
     <uses-feature android:name="android.hardware.location.gps"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
         android:label="tarek_proj"
