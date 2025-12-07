@@ -1,0 +1,5 @@
+- [x] Add faker package to pubspec.yaml
+- [x] Run flutter pub get
+- [x] Modify provide_services3.dart: import faker, add _fillRandomData method, add button
+- [x] Modify search_services2.dart: import faker, add _fillRandomData method, add button
+- [ ] Test the functionality

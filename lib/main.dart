@@ -1,9 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:tarek_proj/pages/Choice.dart';
-import 'package:tarek_proj/pages/Login.dart';
-
+import 'package:tarek_proj/presentation/screens/auth/Login.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tarek_proj/presentation/screens/services/provide_services2.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,20 +20,31 @@ void main() async {
         ),
       );
     }
+    SupabaseService.initialize();
     runApp(MyApp());
   } catch (e) {
     print("Firebase Initialization Error: $e");
   }
 }
 
+class SupabaseService {
+  static Future<void> initialize() async {
+    await Supabase.initialize(
+      url: 'https://ngagkjdtjcfiwgdjjeop.supabase.co',
+      anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nYWdramR0amNmaXdnZGpqZW9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MDIxNTgsImV4cCI6MjA4MDA3ODE1OH0.CyzpZjAYddKrOJLycukOQObjuRPBpCssrnbVxt7jmDY',
+    );
+  }
+
+  static SupabaseClient get client => Supabase.instance.client;
+}
+
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: Choice(), // Set the initial screen
+      home: ProvideServices2(),
     );
   }
 }
-
-

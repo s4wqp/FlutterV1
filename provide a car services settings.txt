@@ -1,0 +1,23 @@
+provide a car services settings
+
+can make many trips with different settings
+1-start/end/stop
+2-flexible or not ( can stop in any whare)
+3-detect bridge root or normal root
+4-expire date for trip 
+5-detect days of work
+6-detect trip time(start , end)
+7-detect verse trip(same)
+8-number of person avialable
+9-air condition
+--------------------
+
+loking for a services settings
+
+1-after click request , ask he will detect actual address or saved address
+2-date and time or immedietly 
+3- end point
+4- number of person
+5- air condition or doesn't metter
+6- detected days
+7- expire date

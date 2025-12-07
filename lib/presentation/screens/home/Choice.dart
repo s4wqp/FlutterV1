@@ -1,12 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
-
-import 'BothServices.dart';
-import 'NeedService.dart';
-import 'SearchService.dart';
+import 'package:tarek_proj/presentation/screens/services/BothServices.dart';
+import 'package:tarek_proj/presentation/screens/services/provide_services.dart';
+import 'package:tarek_proj/presentation/screens/services/SearchService.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class Choice extends StatefulWidget {
-  const Choice({Key? key}) : super(key: key);
+  const Choice({super.key});
 
   @override
   State<Choice> createState() => _ChoiceState();
@@ -15,15 +16,28 @@ class Choice extends StatefulWidget {
 class _ChoiceState extends State<Choice> {
   Set<String> selectedOptions = {}; // Stores selected options
 
-  final PageController _pageController = PageController(initialPage: 0);
-  int _currentImageIndex = 0;
+  int currentIndex = 0;
   late Timer _timer;
 
-  final List<String> sponsorImages = [
-    'images/img1.jpeg',
-    'images/img2.jpeg',
-    'images/img3.jpeg',
-    'images/img4.png',
+  final List<Map<String, String>> sponsors = [
+    {
+      "image": "images/amazon.png",
+      "android_url":
+          "https://play.google.com/store/apps/details?id=com.amazon.mShop.android.shopping",
+      "ios_url": "https://apps.apple.com/app/amazon-shopping/id297606951"
+    },
+    {
+      "image": "images/talabat.png",
+      "android_url":
+          "https://play.google.com/store/apps/details?id=com.talabat",
+      "ios_url": "https://apps.apple.com/app/talabat/id451001072"
+    },
+    {
+      "image": "images/uber.png",
+      "android_url":
+          "https://play.google.com/store/apps/details?id=com.ubercab",
+      "ios_url": "https://apps.apple.com/app/uber/id368677368"
+    },
   ];
 
   @override
@@ -33,25 +47,28 @@ class _ChoiceState extends State<Choice> {
   }
 
   void _startAutoSlide() {
-    _timer = Timer.periodic(Duration(seconds: 3), (timer) {
-      if (_currentImageIndex < sponsorImages.length - 1) {
-        _currentImageIndex++;
-      } else {
-        _currentImageIndex = 0;
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        setState(() {
+          currentIndex = (currentIndex + 1) % sponsors.length;
+        });
       }
-      _pageController.animateToPage(
-        _currentImageIndex,
-        duration: Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
     });
   }
 
   @override
   void dispose() {
     _timer.cancel();
-    _pageController.dispose();
     super.dispose();
+  }
+
+  void _launchAppStore(String androidUrl, String iosUrl) async {
+    final String url = Platform.isAndroid ? androidUrl : iosUrl;
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      print("Could not launch $url");
+    }
   }
 
   void toggleSelection(String option) {
@@ -68,17 +85,17 @@ class _ChoiceState extends State<Choice> {
     if (selectedOptions.length == 2) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => BothServicesPage()),
+        MaterialPageRoute(builder: (context) => const BothServicesPage()),
       );
     } else if (selectedOptions.contains("Provide a service")) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => NeedServicePage()),
+        MaterialPageRoute(builder: (context) => const ProvideServices()),
       );
     } else if (selectedOptions.contains("Looking for a service")) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => SearchServicePage()),
+        MaterialPageRoute(builder: (context) => const Searchservice()),
       );
     }
   }
@@ -87,32 +104,28 @@ class _ChoiceState extends State<Choice> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(80), // AppBar height
-        child: AppBar(
-          backgroundColor: Colors.black87,
-          title: SizedBox(
-            height: 80, // Fill entire AppBar
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: sponsorImages.length,
-              physics: NeverScrollableScrollPhysics(),
-              itemBuilder: (context, index) {
-                return Container(
-                  decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage(sponsorImages[index]),
-                      fit: BoxFit.cover, // Fill the AppBar completely
-                    ),
-                  ),
-                );
-              },
+        preferredSize: const Size.fromHeight(120), // Similar to LoginPage
+        child: GestureDetector(
+          onTap: () {
+            _launchAppStore(
+              sponsors[currentIndex]["android_url"]!,
+              sponsors[currentIndex]["ios_url"]!,
+            );
+          },
+          child: Container(
+            width: double.infinity,
+            height: 200,
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage(sponsors[currentIndex]["image"]!),
+                fit: BoxFit.cover,
+              ),
             ),
           ),
-          centerTitle: true,
         ),
       ),
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           image: DecorationImage(
             fit: BoxFit.cover,
             image: AssetImage('images/bg.jpg'),
@@ -122,11 +135,11 @@ class _ChoiceState extends State<Choice> {
         height: double.infinity,
         child: Column(
           children: [
-            SizedBox(height: 100),
+            const SizedBox(height: 100),
             Container(
               alignment: Alignment.centerLeft,
-              padding: EdgeInsets.only(left: 20),
-              child: Column(
+              padding: const EdgeInsets.only(left: 20),
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -148,8 +161,8 @@ class _ChoiceState extends State<Choice> {
                 ],
               ),
             ),
-            SizedBox(height: 80),
-            Text(
+            const SizedBox(height: 80),
+            const Text(
               "Step 2 : Select what you need.",
               style: TextStyle(
                 color: Colors.white,
@@ -157,29 +170,34 @@ class _ChoiceState extends State<Choice> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 30),
-            Text(
+            const SizedBox(height: 30),
+            const Text(
               "You want to:\n Note: You can select both",
               style: TextStyle(color: Colors.white, fontSize: 16),
             ),
-            SizedBox(height: 40),
+            const SizedBox(height: 40),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 buildCircleButton("Provide a service", Icons.add_card),
-                SizedBox(width: 50),
+                const SizedBox(width: 50),
                 buildCircleButton("Looking for a service", Icons.search),
               ],
             ),
-            SizedBox(height: 60),
+            const SizedBox(height: 60),
             ElevatedButton(
-              onPressed: selectedOptions.isNotEmpty ? navigateToSelectedPages : null, // Disable if nothing is selected
+              onPressed:
+                  selectedOptions.isNotEmpty ? navigateToSelectedPages : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: selectedOptions.isNotEmpty ? Colors.blueGrey[700] : Colors.grey[800],
-                padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                backgroundColor: selectedOptions.isNotEmpty
+                    ? Colors.blueGrey[700]
+                    : Colors.grey[800],
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30)),
               ),
-              child: Text(
+              child: const Text(
                 "Next",
                 style: TextStyle(color: Colors.white, fontSize: 16),
               ),
@@ -197,14 +215,15 @@ class _ChoiceState extends State<Choice> {
         ElevatedButton(
           onPressed: () => toggleSelection(title),
           style: ElevatedButton.styleFrom(
-            shape: CircleBorder(),
-            padding: EdgeInsets.all(25),
-            backgroundColor: isSelected ? Colors.blueAccent : Colors.blueGrey[700],
+            shape: const CircleBorder(),
+            padding: const EdgeInsets.all(25),
+            backgroundColor:
+                isSelected ? Colors.blueAccent : Colors.blueGrey[700],
             elevation: isSelected ? 10 : 5,
           ),
           child: Icon(icon, size: 35, color: Colors.white),
         ),
-        SizedBox(height: 10),
+        const SizedBox(height: 10),
         Text(
           title,
           textAlign: TextAlign.center,
