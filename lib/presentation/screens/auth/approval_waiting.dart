@@ -18,6 +18,7 @@ class _ApprovalWaitingPageState extends State<ApprovalWaitingPage> {
   bool isLoading = true;
   String approvalStatus = 'pending';
   Timer? _timer;
+  bool isEmailVerified = false;
 
   @override
   void initState() {
@@ -37,15 +38,24 @@ class _ApprovalWaitingPageState extends State<ApprovalWaitingPage> {
 
   Future<void> _checkApprovalStatus() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      User? user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         _navigateToLogin();
         return;
       }
 
+      await user.reload();
+      user = FirebaseAuth.instance.currentUser; // Refresh user object
+
+      if (mounted) {
+        setState(() {
+          isEmailVerified = user?.emailVerified ?? false;
+        });
+      }
+
       final doc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(user.uid)
+          .doc(user!.uid)
           .get();
 
       if (doc.exists) {
@@ -88,10 +98,42 @@ class _ApprovalWaitingPageState extends State<ApprovalWaitingPage> {
         }
       }
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
       print('Error checking approval status: $e');
+    }
+  }
+
+  Future<void> _resendVerificationEmail() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && !user.emailVerified) {
+      try {
+        await user.sendEmailVerification();
+        if (mounted) {
+          AwesomeDialog(
+            context: context,
+            dialogType: DialogType.success,
+            animType: AnimType.rightSlide,
+            title: 'Email Sent',
+            desc: 'Verification email has been sent to ${user.email}',
+            btnOkOnPress: () {},
+          ).show();
+        }
+      } catch (e) {
+        if (mounted) {
+          AwesomeDialog(
+            context: context,
+            dialogType: DialogType.error,
+            animType: AnimType.rightSlide,
+            title: 'Error',
+            desc: 'Failed to send verification email. Please try again later.',
+            btnOkOnPress: () {},
+          ).show();
+        }
+      }
     }
   }
 
@@ -162,6 +204,50 @@ class _ApprovalWaitingPageState extends State<ApprovalWaitingPage> {
                 if (isLoading)
                   const CircularProgressIndicator(color: Colors.white)
                 else ...[
+                  if (!isEmailVerified) ...[
+                    const Icon(
+                      Icons.mark_email_unread,
+                      size: 80,
+                      color: Colors.orangeAccent,
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Email Not Verified',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Please verify your email address to proceed.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white70,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _resendVerificationEmail,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: const Text(
+                        'Resend Verification Email',
+                        style: TextStyle(fontSize: 16, color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    const Divider(color: Colors.white54),
+                    const SizedBox(height: 40),
+                  ],
                   const Icon(
                     Icons.hourglass_empty,
                     size: 100,

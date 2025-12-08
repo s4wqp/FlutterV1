@@ -231,7 +231,7 @@ class _LoginPageState extends State<LoginPage> {
           child: SingleChildScrollView(
             // This makes the screen scrollable
             child: Padding(
-              padding: const EdgeInsets.only(top: 90),
+              padding: const EdgeInsets.only(top: 40),
               child: Column(
                 children: [
                   Container(
@@ -259,7 +259,7 @@ class _LoginPageState extends State<LoginPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 20),
                         const Align(
                           alignment: Alignment.centerLeft,
                           child: Padding(

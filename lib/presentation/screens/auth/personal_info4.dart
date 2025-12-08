@@ -8,8 +8,10 @@ import 'approval_waiting.dart';
 class PersonalInfo4 extends StatefulWidget {
   final String email;
   final String password;
-  final String englishName;
+  final String firstName;
+  final String lastName;
   final String arabicName;
+  final String jobTitle;
   final String phone;
   final String birthDate;
 
@@ -17,8 +19,10 @@ class PersonalInfo4 extends StatefulWidget {
     super.key,
     required this.email,
     required this.password,
-    required this.englishName,
+    required this.firstName,
+    required this.lastName,
     required this.arabicName,
+    required this.jobTitle,
     required this.phone,
     required this.birthDate,
   });
@@ -74,8 +78,10 @@ class _PersonalInfo4State extends State<PersonalInfo4> {
   Future<void> handleNext() async {
     print("Finalizing Signup...");
     print("Email: ${widget.email}");
-    print("English Name: ${widget.englishName}");
+    print("First Name: ${widget.firstName}");
+    print("Last Name: ${widget.lastName}");
     print("Arabic Name: ${widget.arabicName}");
+    print("Job Title: ${widget.jobTitle}");
     print("Phone: ${widget.phone}");
     print("Birth Date: ${widget.birthDate}");
     print("Gender: $selectedGender");
@@ -98,10 +104,24 @@ class _PersonalInfo4State extends State<PersonalInfo4> {
       }
 
       print("Attempting to update Firestore for user: ${user.uid}");
+
+      // Send verification email
+      if (!user.emailVerified) {
+        try {
+          await user.sendEmailVerification();
+          print("Verification email sent to ${user.email}");
+        } catch (e) {
+          print("Failed to send verification email: $e");
+        }
+      }
       // Save complete user data to Firestore
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'englishName': widget.englishName,
+        'firstName': widget.firstName,
+        'lastName': widget.lastName,
+        'englishName':
+            "${widget.firstName} ${widget.lastName}", // Optional: keep composite name for easier display if needed
         'arabicName': widget.arabicName,
+        'jobTitle': widget.jobTitle,
         'phone': widget.phone,
         'birthDate': widget.birthDate,
         'gender': selectedGender,

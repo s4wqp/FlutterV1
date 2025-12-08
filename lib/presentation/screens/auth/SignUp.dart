@@ -114,95 +114,101 @@ class _SignUpPageState extends State<SignUpPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Sign Up')),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
           image: DecorationImage(
             image: AssetImage("images/bg.jpg"),
             fit: BoxFit.cover,
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 70),
-              const Text(
-                "Let's create an account",
-                style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "Step 1: Enter Email & Set Password",
-                style: TextStyle(fontSize: 16, color: Colors.white),
-              ),
-              const SizedBox(height: 40),
-              TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.email, color: Colors.indigo),
-                  hintText: 'name@gmail.com',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15)),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.8),
-                ),
-              ),
-              const SizedBox(height: 40),
-              TextField(
-                controller: passController,
-                obscureText: _obscureTextPass,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.lock, color: Colors.indigo),
-                  hintText: 'Enter Password',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15)),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.8),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscureTextPass
-                        ? Icons.visibility
-                        : Icons.visibility_off),
-                    onPressed: () {
-                      setState(() {
-                        _obscureTextPass = !_obscureTextPass;
-                      });
-                    },
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 70),
+                  const Text(
+                    "Let's create an account",
+                    style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
                   ),
-                ),
-              ),
-              const SizedBox(height: 40),
-              TextField(
-                controller: repassController,
-                obscureText: _obscureTextRePass,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.lock, color: Colors.indigo),
-                  hintText: 'Confirm Password',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15)),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.8),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscureTextRePass
-                        ? Icons.visibility
-                        : Icons.visibility_off),
-                    onPressed: () {
-                      setState(() {
-                        _obscureTextRePass = !_obscureTextRePass;
-                      });
-                    },
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Step 1: Enter Email & Set Password",
+                    style: TextStyle(fontSize: 16, color: Colors.white),
                   ),
-                ),
+                  const SizedBox(height: 40),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.email, color: Colors.indigo),
+                      hintText: 'name@gmail.com',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15)),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  TextField(
+                    controller: passController,
+                    obscureText: _obscureTextPass,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.lock, color: Colors.indigo),
+                      hintText: 'Enter Password',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15)),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.8),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscureTextPass
+                            ? Icons.visibility
+                            : Icons.visibility_off),
+                        onPressed: () {
+                          setState(() {
+                            _obscureTextPass = !_obscureTextPass;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  TextField(
+                    controller: repassController,
+                    obscureText: _obscureTextRePass,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.lock, color: Colors.indigo),
+                      hintText: 'Confirm Password',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15)),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.8),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscureTextRePass
+                            ? Icons.visibility
+                            : Icons.visibility_off),
+                        onPressed: () {
+                          setState(() {
+                            _obscureTextRePass = !_obscureTextRePass;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  ElevatedButton(
+                    onPressed: handleSignUp,
+                    child: const Text('Next'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 40),
-              ElevatedButton(
-                onPressed: handleSignUp,
-                child: const Text('Next'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
