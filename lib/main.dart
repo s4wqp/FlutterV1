@@ -20,7 +20,7 @@ void main() async {
         ),
       );
     }
-    SupabaseService.initialize();
+    await SupabaseService.initialize();
     runApp(MyApp());
   } catch (e) {
     print("Firebase Initialization Error: $e");

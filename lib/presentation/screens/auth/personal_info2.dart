@@ -277,7 +277,6 @@ class _PersonalInfo2State extends State<PersonalInfo2> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 40),
 
                   // Navigation Buttons
