@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:faker/faker.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
@@ -8,20 +6,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:tarek_proj/presentation/screens/services/provide_services4.dart';
 
 class ProvideServices3 extends StatefulWidget {
-  final String selectedTime;
-  final List<String> selectedTimes;
-  final String selectedGender;
+  final Map<String, dynamic> registrationData;
 
-  const ProvideServices3({
-    super.key,
-    required this.selectedTime,
-    required this.selectedTimes,
-    required this.selectedGender,
-    String? transportationType,
-    required String vehicleName,
-    required String vehicleColor,
-    required String vehicleNumber,
-  });
+  const ProvideServices3({super.key, required this.registrationData});
 
   @override
   _ProvideServices3State createState() => _ProvideServices3State();
@@ -39,12 +26,6 @@ class _ProvideServices3State extends State<ProvideServices3> {
       TextEditingController();
   final TextEditingController leadMarkController = TextEditingController();
   bool _isLoadingLocation = false;
-
-  // Image files for grid display
-  File? faceImage,
-      graduationCertificate,
-      personalIdCardFront,
-      personalIdCardBack;
 
   @override
   void dispose() {
@@ -125,8 +106,8 @@ class _ProvideServices3State extends State<ProvideServices3> {
         Placemark place = placemarks.first;
         setState(() {
           cityController.text = place.locality ?? '';
-          zipCodeController.text = place.subLocality ?? '';
-          districtController.text = place.administrativeArea ?? '';
+          zipCodeController.text = place.postalCode ?? '';
+          districtController.text = place.subAdministrativeArea ?? '';
           streetNameController.text = place.street ?? '';
           _currentPosition = position;
         });
@@ -135,7 +116,7 @@ class _ProvideServices3State extends State<ProvideServices3> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            "Location Retrieved: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}",
+            "Location Retrieved",
           ),
         ),
       );
@@ -154,8 +135,7 @@ class _ProvideServices3State extends State<ProvideServices3> {
     final faker = Faker();
     setState(() {
       cityController.text = faker.address.city();
-      zipCodeController.text = faker.address
-          .streetName(); // Note: faker streetName isn't zip but keeping logic similar
+      zipCodeController.text = faker.randomGenerator.integer(99999).toString();
       districtController.text = faker.address.state();
       streetNameController.text = faker.address.streetName();
       builderNumberController.text =
@@ -182,22 +162,22 @@ class _ProvideServices3State extends State<ProvideServices3> {
       return;
     }
 
-    final addressDetails = {
-      "City": cityController.text,
-      "Zip Code": zipCodeController.text,
-      "District": districtController.text,
-      "Street Name": streetNameController.text,
-      "Builder Number": builderNumberController.text,
-      "Floor Number": floorNumberController.text,
-      "Apartment Number": apartmentNumberController.text,
-      "Lead Mark": leadMarkController.text,
-    };
+    // Update Registration Data
+    widget.registrationData['city'] = cityController.text;
+    widget.registrationData['zip_code'] = zipCodeController.text;
+    widget.registrationData['district'] = districtController.text;
+    widget.registrationData['street_name'] = streetNameController.text;
+    widget.registrationData['builder_number'] = builderNumberController.text;
+    widget.registrationData['floor_number'] = floorNumberController.text;
+    widget.registrationData['apartment_number'] =
+        apartmentNumberController.text;
+    widget.registrationData['special_marque'] = leadMarkController.text;
 
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const ProvideServices4(
-          addressDetails: {},
+        builder: (context) => ProvideServices4(
+          registrationData: widget.registrationData,
         ),
       ),
     );
@@ -206,11 +186,7 @@ class _ProvideServices3State extends State<ProvideServices3> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ad here'),
-        centerTitle: true,
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Address Details'), centerTitle: true),
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
@@ -221,120 +197,66 @@ class _ProvideServices3State extends State<ProvideServices3> {
         width: double.infinity,
         height: double.infinity,
         padding: const EdgeInsets.all(16),
-        child: ListView(
-          children: [
-            const Text(
-              '2 out of 3',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 25,
-                fontWeight: FontWeight.bold,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              const Text(
+                'Step 3: Address',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 25,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _isLoadingLocation ? null : _getCurrentLocation,
-                  icon: _isLoadingLocation
-                      ? const CircularProgressIndicator()
-                      : const Icon(Icons.location_on),
-                  label: Text(_isLoadingLocation
-                      ? "Getting Location..."
-                      : "Get Current Location"),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _isLoadingLocation ? null : _getCurrentLocation,
+                    icon: _isLoadingLocation
+                        ? const CircularProgressIndicator()
+                        : const Icon(Icons.location_on),
+                    label: Text(_isLoadingLocation
+                        ? "Getting Location..."
+                        : "Current Location"),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _fillRandomData,
+                    icon: const Icon(Icons.shuffle),
+                    label: const Text("Fill Random"),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (_currentPosition != null)
+                Text(
+                  "Lat: ${_currentPosition!.latitude.toStringAsFixed(4)}, Lng: ${_currentPosition!.longitude.toStringAsFixed(4)}",
+                  style: const TextStyle(fontSize: 14, color: Colors.white70),
                 ),
-                ElevatedButton.icon(
-                  onPressed: _fillRandomData,
-                  icon: const Icon(Icons.shuffle),
-                  label: const Text("Fill Random Data"),
+              const SizedBox(height: 20),
+
+              // Address fields
+              ..._buildAddressFields(),
+
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: _proceedToNextPage,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              _currentPosition != null
-                  ? "Location: ${_currentPosition!.latitude.toStringAsFixed(4)}, ${_currentPosition!.longitude.toStringAsFixed(4)}"
-                  : "No location retrieved",
-              style: const TextStyle(fontSize: 16, color: Colors.white),
-            ),
-            const SizedBox(height: 20),
-
-            // Add grid view for images
-            _buildImagesGrid(),
-
-            const SizedBox(height: 20),
-            ..._buildAddressFields(),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _proceedToNextPage,
-              child: const Text("Next"),
-            ),
-          ],
+                child: const Text("Next",
+                    style: TextStyle(fontSize: 18, color: Colors.white)),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
-  }
-
-  Widget _buildImagesGrid() {
-    List<Widget> imageWidgets = [];
-
-    if (faceImage != null) {
-      imageWidgets.add(_buildImageTile(faceImage!, 'Face'));
-    }
-    if (graduationCertificate != null) {
-      imageWidgets.add(_buildImageTile(graduationCertificate!, 'Graduation'));
-    }
-    if (personalIdCardFront != null) {
-      imageWidgets.add(_buildImageTile(personalIdCardFront!, 'ID_Front'));
-    }
-    if (personalIdCardBack != null) {
-      imageWidgets.add(_buildImageTile(personalIdCardBack!, 'ID_Back'));
-    }
-
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      children: imageWidgets,
-    );
-  }
-
-  Widget _buildImageTile(File image, String imageType) {
-    return Stack(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            image: DecorationImage(image: FileImage(image), fit: BoxFit.cover),
-          ),
-        ),
-        Positioned(
-          right: 0,
-          child: IconButton(
-            icon: const Icon(Icons.close, color: Colors.red),
-            onPressed: () => _removeImage(imageType),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _removeImage(String imageType) {
-    setState(() {
-      if (imageType == 'Face') {
-        faceImage = null;
-      } else if (imageType == 'Graduation') {
-        graduationCertificate = null;
-      } else if (imageType == 'ID_Front') {
-        personalIdCardFront = null;
-      } else if (imageType == 'ID_Back') {
-        personalIdCardBack = null;
-      }
-    });
   }
 
   List<Widget> _buildAddressFields() {
@@ -382,7 +304,7 @@ class _ProvideServices3State extends State<ProvideServices3> {
         "type": TextInputType.number
       },
       {
-        "label": "Lead Mark",
+        "label": "Special Mark",
         "controller": leadMarkController,
         "icon": Icons.label,
         "type": TextInputType.text

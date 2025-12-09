@@ -277,7 +277,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
             } else if (isSeeker) {
               targetScreen = const ServicesHomeScreen();
             } else {
-              targetScreen = const Choice();
+              targetScreen = const Choice(registrationData: {});
             }
           }
         } catch (e) {

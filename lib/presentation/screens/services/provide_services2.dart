@@ -7,7 +7,9 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:tarek_proj/presentation/screens/services/provide_services3.dart';
 
 class ProvideServices2 extends StatefulWidget {
-  const ProvideServices2({super.key});
+  final Map<String, dynamic> registrationData;
+
+  const ProvideServices2({super.key, required this.registrationData});
 
   @override
   _ProvideServices2State createState() => _ProvideServices2State();
@@ -59,9 +61,11 @@ class _ProvideServices2State extends State<ProvideServices2> {
 
   void _startAutoSlide() {
     _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      setState(() {
-        _currentImageIndex = (_currentImageIndex + 1) % sponsorImages.length;
-      });
+      if (mounted) {
+        setState(() {
+          _currentImageIndex = (_currentImageIndex + 1) % sponsorImages.length;
+        });
+      }
     });
   }
 
@@ -498,17 +502,41 @@ class _ProvideServices2State extends State<ProvideServices2> {
                       return;
                     }
 
+                    // Update registration data
+                    widget.registrationData['working_time'] =
+                        selectedTimes.toList();
+                    widget.registrationData['deal_with_gender'] =
+                        selectedGender;
+                    widget.registrationData['transportation_type'] =
+                        selectedTransportation;
+
+                    if (selectedTransportation == 'Car' ||
+                        selectedTransportation == 'Motorbike') {
+                      widget.registrationData['vehicle_name'] =
+                          vehicleNameController.text;
+                      widget.registrationData['vehicle_model_year'] =
+                          selectedCarModelYear;
+                      widget.registrationData['vehicle_color'] =
+                          vehicleColorController.text;
+                      widget.registrationData['vehicle_number'] =
+                          vehicleNumberController.text;
+                      widget.registrationData['car_license_number'] =
+                          carLicenseController.text;
+                      widget.registrationData['user_license_number'] =
+                          userLicenseController.text;
+
+                      // Images
+                      widget.registrationData['carLicenseImage'] =
+                          carLicenseImage;
+                      widget.registrationData['userLicenseImage'] =
+                          userLicenseImage;
+                    }
+
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => ProvideServices3(
-                          selectedTimes: selectedTimes.toList(),
-                          selectedGender: selectedGender!,
-                          selectedTime: '',
-                          transportationType: selectedTransportation,
-                          vehicleName: vehicleNameController.text,
-                          vehicleColor: vehicleColorController.text,
-                          vehicleNumber: vehicleNumberController.text,
+                          registrationData: widget.registrationData,
                         ),
                       ),
                     );

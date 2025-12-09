@@ -1,14 +1,14 @@
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:tarek_proj/presentation/screens/auth/personal_info2.dart';
 
 class SignUpPage extends StatefulWidget {
+  const SignUpPage({super.key});
+
   @override
   _SignUpPageState createState() => _SignUpPageState();
-
-  const SignUpPage({super.key});
 }
 
 class _SignUpPageState extends State<SignUpPage> {
@@ -17,6 +17,7 @@ class _SignUpPageState extends State<SignUpPage> {
   TextEditingController repassController = TextEditingController();
   bool _obscureTextPass = true;
   bool _obscureTextRePass = true;
+  String? _emailErrorText;
 
   @override
   void dispose() {
@@ -48,17 +49,30 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Future<void> handleSignUp() async {
+    setState(() {
+      _emailErrorText = null;
+    });
+
     String email = emailController.text.trim();
     String password = passController.text.trim();
     String repassword = repassController.text.trim();
 
-    if (email.isEmpty || password.isEmpty || repassword.isEmpty) {
-      showErrorDialog("Error", "Please fill in all fields.");
+    if (email.isEmpty) {
+      setState(() {
+        _emailErrorText = "Please enter an email address";
+      });
+      return;
+    }
+
+    if (password.isEmpty || repassword.isEmpty) {
+      showErrorDialog("Error", "Please fill in all password fields.");
       return;
     }
 
     if (!isValidEmail(email)) {
-      showErrorDialog("Invalid Email", "Please enter a valid email address.");
+      setState(() {
+        _emailErrorText = "Please enter a valid email address";
+      });
       return;
     }
 
@@ -74,16 +88,35 @@ class _SignUpPageState extends State<SignUpPage> {
     }
 
     try {
-      // Check if email already exists
+      // 1. Check if email already exists in Auth
       final methods =
           await FirebaseAuth.instance.fetchSignInMethodsForEmail(email);
       if (methods.isNotEmpty) {
-        showErrorDialog("Email Already Registered",
-            "This email is already in use. Please use a different email.");
+        setState(() {
+          _emailErrorText = "This email is already in use. Please try another.";
+        });
         return;
       }
 
-      // Navigate to Personal Info Page
+      // 2. Check if email already exists in Firestore (Backup check)
+      try {
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: email)
+            .get();
+
+        if (querySnapshot.docs.isNotEmpty) {
+          setState(() {
+            _emailErrorText =
+                "This email is already in use. Please try another.";
+          });
+          return;
+        }
+      } catch (e) {
+        print("Firestore email check failed: $e");
+      }
+
+      // 3. Email is available, proceed to next step
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -94,15 +127,12 @@ class _SignUpPageState extends State<SignUpPage> {
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage = "An error occurred. Please try again.";
-
-      if (e.code == 'email-already-in-use') {
-        errorMessage = "This email is already in use. Try another.";
-      } else if (e.code == 'invalid-email') {
-        errorMessage = "Invalid email format.";
-      } else if (e.code == 'weak-password') {
-        errorMessage = "Password should be at least 8 characters.";
+      if (e.code == 'invalid-email') {
+        setState(() {
+          _emailErrorText = "Invalid email format.";
+        });
+        return;
       }
-
       showErrorDialog("Error", errorMessage);
     } catch (e) {
       showErrorDialog("Error", e.toString());
@@ -146,9 +176,21 @@ class _SignUpPageState extends State<SignUpPage> {
                   TextField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
+                    onChanged: (value) {
+                      if (_emailErrorText != null) {
+                        setState(() {
+                          _emailErrorText = null;
+                        });
+                      }
+                    },
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.email, color: Colors.indigo),
                       hintText: 'name@gmail.com',
+                      errorText: _emailErrorText,
+                      errorStyle: const TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15)),
                       filled: true,

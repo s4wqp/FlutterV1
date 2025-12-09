@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tarek_proj/presentation/screens/auth/provider_details.dart';
-import 'package:tarek_proj/presentation/screens/auth/address_registration.dart';
-import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:tarek_proj/presentation/screens/Choice.dart';
 
 class PersonalInfo4 extends StatefulWidget {
   final String email;
@@ -32,17 +30,6 @@ class PersonalInfo4 extends StatefulWidget {
 class _PersonalInfo4State extends State<PersonalInfo4> {
   String selectedGender = "Male";
   String selectedCity = "Cairo";
-  String serviceType = "Seeker"; // Default or "Provide"
-  String? lookingForCategory;
-  final List<String> categories = [
-    "Car Driver",
-    "Motorbike Rider",
-    "Delivery Service",
-    "Home Cleaning",
-    "Gardening",
-    "Private Teacher",
-    "Other"
-  ];
 
   final List<String> egyptianCities = [
     "Cairo",
@@ -54,71 +41,33 @@ class _PersonalInfo4State extends State<PersonalInfo4> {
     "Hurghada"
   ];
 
-  void showErrorDialog(String title, String message) {
-    AwesomeDialog(
-      context: context,
-      dialogType: DialogType.error,
-      animType: AnimType.rightSlide,
-      title: title,
-      desc: message,
-      btnOkOnPress: () {},
-    ).show();
-  }
-
   void handlePrevious() {
     Navigator.pop(context);
   }
 
   void handleNext() {
-    print("Step 4 complete. Navigate to next step based on service type.");
+    // Collect all data accumulated so far
+    Map<String, dynamic> registrationData = {
+      'email': widget.email,
+      'password': widget.password,
+      'firstName': widget.firstName,
+      'lastName': widget.lastName,
+      'arabicName': widget.arabicName,
+      'jobTitle': widget.jobTitle,
+      'phone': widget.phone,
+      'birthDate': widget.birthDate,
+      'gender': selectedGender,
+      'city': selectedCity,
+    };
 
-    if (serviceType == "Provider") {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ProviderDetails(
-            email: widget.email,
-            password: widget.password,
-            firstName: widget.firstName,
-            lastName: widget.lastName,
-            arabicName: widget.arabicName,
-            jobTitle: widget.jobTitle,
-            phone: widget.phone,
-            birthDate: widget.birthDate,
-            gender: selectedGender,
-            city: selectedCity,
-            serviceType: "Provider",
-          ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Choice(
+          registrationData: registrationData,
         ),
-      );
-    } else {
-      // Seeker
-      if (lookingForCategory == null) {
-        showErrorDialog(
-            "Required", "Please select what service you are looking for.");
-        return;
-      }
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AddressRegistration(
-            email: widget.email,
-            password: widget.password,
-            firstName: widget.firstName,
-            lastName: widget.lastName,
-            arabicName: widget.arabicName,
-            jobTitle: widget.jobTitle,
-            phone: widget.phone,
-            birthDate: widget.birthDate,
-            gender: selectedGender,
-            city: selectedCity,
-            serviceType: "Seeker",
-            lookingForCategory: lookingForCategory,
-          ),
-        ),
-      );
-    }
+      ),
+    );
   }
 
   @override
@@ -216,107 +165,6 @@ class _PersonalInfo4State extends State<PersonalInfo4> {
                   ),
                 ),
                 const SizedBox(height: 30),
-
-                // Service Selection
-                const Text(
-                  "I want to...",
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => serviceType = "Seeker"),
-                        child: Container(
-                          padding: const EdgeInsets.all(15),
-                          decoration: BoxDecoration(
-                            color: serviceType == "Seeker"
-                                ? Colors.indigo
-                                : Colors.white24,
-                            borderRadius: BorderRadius.circular(15),
-                            border: Border.all(color: Colors.white),
-                          ),
-                          child: const Column(
-                            children: [
-                              Icon(Icons.search, size: 40, color: Colors.white),
-                              SizedBox(height: 5),
-                              Text("Find Services",
-                                  style: TextStyle(color: Colors.white)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => serviceType = "Provider"),
-                        child: Container(
-                          padding: const EdgeInsets.all(15),
-                          decoration: BoxDecoration(
-                            color: serviceType == "Provider"
-                                ? Colors.indigo
-                                : Colors.white24,
-                            borderRadius: BorderRadius.circular(15),
-                            border: Border.all(color: Colors.white),
-                          ),
-                          child: const Column(
-                            children: [
-                              Icon(Icons.work, size: 40, color: Colors.white),
-                              SizedBox(height: 5),
-                              Text("Provide Services",
-                                  style: TextStyle(color: Colors.white)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 30),
-
-                if (serviceType == "Seeker") ...[
-                  const Text(
-                    "What are you looking for?",
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(15),
-                      border: Border.all(color: Colors.indigo, width: 1),
-                    ),
-                    child: DropdownButton<String>(
-                      value: lookingForCategory,
-                      isExpanded: true,
-                      hint: const Text("Select Service Needed"),
-                      icon: const Icon(Icons.search, color: Colors.indigo),
-                      underline: const SizedBox(),
-                      style: const TextStyle(fontSize: 16, color: Colors.black),
-                      dropdownColor: Colors.white,
-                      items: categories.map((cat) {
-                        return DropdownMenuItem<String>(
-                          value: cat,
-                          child: Text(cat),
-                        );
-                      }).toList(),
-                      onChanged: (newValue) {
-                        setState(() {
-                          lookingForCategory = newValue;
-                        });
-                      },
-                    ),
-                  ),
-                ],
 
                 const SizedBox(height: 40),
 

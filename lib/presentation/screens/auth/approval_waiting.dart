@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:awesome_dialog/awesome_dialog.dart';
-import 'package:tarek_proj/presentation/screens/home/Choice.dart';
+import 'package:tarek_proj/presentation/screens/home/HomePage.dart';
 import 'Login.dart';
 
 class ApprovalWaitingPage extends StatefulWidget {
@@ -66,7 +66,11 @@ class _ApprovalWaitingPageState extends State<ApprovalWaitingPage> {
         });
 
         if (status == 'approved') {
-          _navigateToHome();
+          if (isEmailVerified) {
+            _navigateToHome();
+          } else {
+            // Stay here, UI will show email verification
+          }
         } else if (status == 'rejected') {
           _showRejectionDialog();
         }
@@ -141,7 +145,7 @@ class _ApprovalWaitingPageState extends State<ApprovalWaitingPage> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-          builder: (context) => widget.targetScreen ?? const Choice()),
+          builder: (context) => widget.targetScreen ?? const Homepage()),
     );
   }
 
@@ -203,51 +207,7 @@ class _ApprovalWaitingPageState extends State<ApprovalWaitingPage> {
               children: [
                 if (isLoading)
                   const CircularProgressIndicator(color: Colors.white)
-                else ...[
-                  if (!isEmailVerified) ...[
-                    const Icon(
-                      Icons.mark_email_unread,
-                      size: 80,
-                      color: Colors.orangeAccent,
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Email Not Verified',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Please verify your email address to proceed.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white70,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _resendVerificationEmail,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: const Text(
-                        'Resend Verification Email',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    const Divider(color: Colors.white54),
-                    const SizedBox(height: 40),
-                  ],
+                else if (approvalStatus == 'pending') ...[
                   const Icon(
                     Icons.hourglass_empty,
                     size: 100,
@@ -287,12 +247,61 @@ class _ApprovalWaitingPageState extends State<ApprovalWaitingPage> {
                       style: TextStyle(fontSize: 16, color: Colors.white),
                     ),
                   ),
+                ] else if (approvalStatus == 'approved' &&
+                    !isEmailVerified) ...[
+                  const Icon(
+                    Icons.mark_email_unread,
+                    size: 80,
+                    color: Colors.orangeAccent,
+                  ),
                   const SizedBox(height: 20),
-                  TextButton(
-                    onPressed: _logout,
+                  const Text(
+                    'Account Approved!',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.greenAccent,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Please verify your email address to proceed.',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _resendVerificationEmail,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
                     child: const Text(
-                      'Logout',
-                      style: TextStyle(color: Colors.white70),
+                      'Resend Verification Email',
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  ElevatedButton(
+                    onPressed: _checkApprovalStatus,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 15,
+                      ),
+                    ),
+                    child: const Text(
+                      'I have verified my email',
+                      style: TextStyle(fontSize: 16, color: Colors.white),
                     ),
                   ),
                 ],

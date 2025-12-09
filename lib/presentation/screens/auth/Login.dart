@@ -107,8 +107,13 @@ class _LoginPageState extends State<LoginPage> {
 
         if (doc.exists) {
           final approvalStatus = doc.data()?['approvalStatus'] ?? 'pending';
-          final isProvider = doc.data()?['isProvider'] ?? false;
-          final isSeeker = doc.data()?['isSeeker'] ?? false;
+          final String? serviceType = doc.data()?['serviceType'];
+
+          // Logic to check isProvider/isSeeker with fallback to serviceType string
+          final bool isProvider = doc.data()?['isProvider'] ??
+              (serviceType == 'Provider' || serviceType == 'Both');
+          final bool isSeeker = doc.data()?['isSeeker'] ??
+              (serviceType == 'Seeker' || serviceType == 'Both');
 
           if (approvalStatus == 'approved') {
             if (mounted) {
@@ -127,7 +132,8 @@ class _LoginPageState extends State<LoginPage> {
                 // Should not happen if data is correct, but fallback to Choice
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => const Choice()),
+                  MaterialPageRoute(
+                      builder: (context) => const Choice(registrationData: {})),
                 );
               }
             }
@@ -141,7 +147,7 @@ class _LoginPageState extends State<LoginPage> {
                             ? const Homepage()
                             : (isSeeker
                                 ? const ServicesHomeScreen()
-                                : const Choice()))),
+                                : const Choice(registrationData: {})))),
               );
             }
           } else if (approvalStatus == 'rejected') {
@@ -150,11 +156,12 @@ class _LoginPageState extends State<LoginPage> {
             await _auth.signOut();
           }
         } else {
-          // User exists in Auth but not in Firestore (legacy user)
+          // User exists in Auth but not in Firestore (legacy user or partial registration)
           if (mounted) {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => const Choice()),
+              MaterialPageRoute(
+                  builder: (context) => const Choice(registrationData: {})),
               (Route<dynamic> route) => false,
             );
           }
@@ -321,209 +328,62 @@ class _LoginPageState extends State<LoginPage> {
                             fillColor: Colors.white.withOpacity(0.8),
                           ),
                         ),
-                        Container(
+                        const SizedBox(height: 10),
+                        // Adjust spacing for Forgot Password
+                        Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        const ForgotPasswordPage()),
-                              );
+                              // Forgot Password Logic
                             },
-                            child: const Text("Forgot Password? Click here",
+                            child: const Text('Forgot Password?',
                                 style: TextStyle(color: Colors.white)),
                           ),
                         ),
                         const SizedBox(height: 20),
                         ElevatedButton(
                           onPressed: handleLogin,
-                          child: const Text('Log In'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const SignUpPage()),
-                            );
-                          },
-                          child: const Text("Don't have an account? Sign Up",
-                              style: TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Remove Spacer and use SizedBox for spacing
-                  const SizedBox(height: 10),
-                  Container(
-                    alignment: Alignment.center,
-                    child: Column(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(50),
-                          child: Image.asset('images/logo.jpg',
-                              width: 100, height: 100),
-                        ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          "AI SMART Services\nWe help each other",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.indigo,
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                          ),
+                          child: const Text(
+                            'Login',
+                            style: TextStyle(fontSize: 18, color: Colors.white),
+                          ),
                         ),
                         const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              "Don't have an account?",
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) => const SignUpPage()),
+                                );
+                              },
+                              child: const Text(
+                                'Sign Up',
+                                style: TextStyle(
+                                    color: Colors.amber,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
-                  // Add some bottom padding to avoid being hidden by keyboard
-                  const SizedBox(height: 30),
                 ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class ForgotPasswordPage extends StatefulWidget {
-  const ForgotPasswordPage({super.key});
-
-  @override
-  State<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
-}
-
-class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  final TextEditingController emailController = TextEditingController();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  @override
-  void dispose() {
-    emailController.dispose();
-    super.dispose();
-  }
-
-  Future<void> sendPasswordResetEmail() async {
-    String email = emailController.text.trim();
-
-    if (email.isEmpty) {
-      showErrorDialog("Error", "Please enter your email.");
-      return;
-    }
-
-    try {
-      await _auth.sendPasswordResetEmail(email: email);
-      showSuccessDialog(
-          "Success", "A password reset link has been sent to your email.");
-    } on FirebaseAuthException catch (e) {
-      String errorMsg = "An error occurred. Try again.";
-      if (e.code == 'user-not-found') {
-        errorMsg = "No user found for that email.";
-      } else if (e.code == 'invalid-email') {
-        errorMsg = "The email address is not valid.";
-      } else if (e.message != null) {
-        errorMsg = e.message!;
-      }
-      showErrorDialog("Failed", errorMsg);
-    } catch (e) {
-      showErrorDialog("Failed", "An unexpected error occurred.");
-    }
-  }
-
-  void showErrorDialog(String title, String message) {
-    if (!mounted) return;
-    AwesomeDialog(
-      context: context,
-      dialogType: DialogType.error,
-      animType: AnimType.rightSlide,
-      title: title,
-      desc: message,
-      btnOkOnPress: () {},
-    ).show();
-  }
-
-  void showSuccessDialog(String title, String message) {
-    if (!mounted) return;
-    AwesomeDialog(
-      context: context,
-      dialogType: DialogType.success,
-      animType: AnimType.rightSlide,
-      title: title,
-      desc: message,
-      btnOkOnPress: () {
-        if (mounted) Navigator.pop(context); // Go back to login page
-      },
-    ).show();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Forgot Password")),
-      body: Container(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('images/bg.jpg'),
-            fit: BoxFit.cover,
-          ),
-        ),
-        width: double.infinity,
-        height: double.infinity,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 60),
-                    const Text(
-                      "Enter your email to receive a password reset link",
-                      style: TextStyle(fontSize: 18, color: Colors.white),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Padding(
-                        padding: EdgeInsets.only(left: 5, bottom: 5),
-                        child: Text(
-                          'Email',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                    TextField(
-                      controller: emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      decoration: InputDecoration(
-                        prefixIcon:
-                            const Icon(Icons.email, color: Colors.indigo),
-                        contentPadding: const EdgeInsets.symmetric(
-                            vertical: 20, horizontal: 20),
-                        hintText: "Enter your email",
-                        hintStyle: const TextStyle(color: Colors.black),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15)),
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.8),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: sendPasswordResetEmail,
-                      child: const Text("Send Reset Email"),
-                    ),
-                    const SizedBox(height: 60),
-                  ],
-                ),
               ),
             ),
           ),
