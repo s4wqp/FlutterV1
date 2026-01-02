@@ -45,7 +45,8 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   bool isValidPassword(String password) {
-    return password.length >= 8;
+    return password.length >=
+        4; // Relaxed from 8 to 4 to allow testing shorter passwords
   }
 
   Future<void> handleSignUp() async {
@@ -78,7 +79,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
     if (!isValidPassword(password)) {
       showErrorDialog(
-          "Weak Password", "Password must be at least 8 characters.");
+          "Weak Password", "Password must be at least 4 characters.");
       return;
     }
 
@@ -205,7 +206,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         8, // RESTORED TO 8: Backend rejects 10 and 11 chars.
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.lock, color: Colors.indigo),
-                      hintText: 'Password (Max 8 chars)',
+                      hintText: 'Password (4-8 chars)',
                       counterText: "", // Hide character counter
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15)),
