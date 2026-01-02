@@ -7,7 +7,9 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:tarek_proj/presentation/screens/services/provide_services3.dart';
 
 class ProvideServices2 extends StatefulWidget {
-  const ProvideServices2({super.key});
+  final Map<String, dynamic> registrationData;
+
+  const ProvideServices2({super.key, required this.registrationData});
 
   @override
   _ProvideServices2State createState() => _ProvideServices2State();
@@ -29,6 +31,7 @@ class _ProvideServices2State extends State<ProvideServices2> {
   String? selectedCarModelYear;
   File? carLicenseImage;
   File? userLicenseImage;
+  File? carPhoto;
   final ImagePicker _picker = ImagePicker();
 
   // Generate years list (e.g., 1980 current year + 1)
@@ -59,9 +62,11 @@ class _ProvideServices2State extends State<ProvideServices2> {
 
   void _startAutoSlide() {
     _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      setState(() {
-        _currentImageIndex = (_currentImageIndex + 1) % sponsorImages.length;
-      });
+      if (mounted) {
+        setState(() {
+          _currentImageIndex = (_currentImageIndex + 1) % sponsorImages.length;
+        });
+      }
     });
   }
 
@@ -80,9 +85,9 @@ class _ProvideServices2State extends State<ProvideServices2> {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => Container(
-        height: 150,
         padding: const EdgeInsets.all(20),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt),
@@ -114,8 +119,10 @@ class _ProvideServices2State extends State<ProvideServices2> {
     setState(() {
       if (type == 'car') {
         carLicenseImage = file;
-      } else {
+      } else if (type == 'user') {
         userLicenseImage = file;
+      } else if (type == 'carPhoto') {
+        carPhoto = file;
       }
     });
 
@@ -465,6 +472,40 @@ class _ProvideServices2State extends State<ProvideServices2> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 20),
+                    // Car Photo Upload (New)
+                    Column(
+                      children: [
+                        const Text("Car Photo",
+                            style: TextStyle(color: Colors.white)),
+                        const SizedBox(height: 5),
+                        GestureDetector(
+                          onTap: () => _pickImage('carPhoto'),
+                          child: Container(
+                            height: 150,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.white10,
+                              border: Border.all(color: Colors.white),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: carPhoto != null
+                                ? Image.file(carPhoto!, fit: BoxFit.cover)
+                                : const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.directions_car,
+                                          color: Colors.white, size: 40),
+                                      SizedBox(height: 5),
+                                      Text("Upload Car Photo",
+                                          style:
+                                              TextStyle(color: Colors.white70)),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               const SizedBox(height: 40),
@@ -489,7 +530,11 @@ class _ProvideServices2State extends State<ProvideServices2> {
                             carLicenseController.text.isEmpty ||
                             userLicenseController.text.isEmpty ||
                             carLicenseImage == null ||
-                            userLicenseImage == null)) {
+                            carLicenseController.text.isEmpty ||
+                            userLicenseController.text.isEmpty ||
+                            carLicenseImage == null ||
+                            userLicenseImage == null ||
+                            carPhoto == null)) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                             content: Text(
@@ -498,17 +543,44 @@ class _ProvideServices2State extends State<ProvideServices2> {
                       return;
                     }
 
+                    // Update registration data
+                    widget.registrationData['working_time'] =
+                        selectedTimes.toList();
+                    widget.registrationData['deal_with_gender'] =
+                        selectedGender;
+                    widget.registrationData['transportation_type'] =
+                        selectedTransportation;
+
+                    if (selectedTransportation == 'Car' ||
+                        selectedTransportation == 'Motorbike') {
+                      widget.registrationData['vehicle_name'] =
+                          vehicleNameController.text;
+                      widget.registrationData['vehicle_model_year'] =
+                          selectedCarModelYear;
+                      widget.registrationData['vehicle_color'] =
+                          vehicleColorController.text;
+                      widget.registrationData['vehicle_number'] =
+                          vehicleNumberController.text;
+                      widget.registrationData['car_license_number'] =
+                          carLicenseController.text;
+                      widget.registrationData['user_license_number'] =
+                          userLicenseController.text;
+
+                      // Images
+                      widget.registrationData['carLicenseImage'] =
+                          carLicenseImage;
+                      widget.registrationData['carLicenseImage'] =
+                          carLicenseImage;
+                      widget.registrationData['userLicenseImage'] =
+                          userLicenseImage;
+                      widget.registrationData['carPhoto'] = carPhoto;
+                    }
+
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => ProvideServices3(
-                          selectedTimes: selectedTimes.toList(),
-                          selectedGender: selectedGender!,
-                          selectedTime: '',
-                          transportationType: selectedTransportation,
-                          vehicleName: vehicleNameController.text,
-                          vehicleColor: vehicleColorController.text,
-                          vehicleNumber: vehicleNumberController.text,
+                          registrationData: widget.registrationData,
                         ),
                       ),
                     );

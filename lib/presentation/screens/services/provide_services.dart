@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:tarek_proj/presentation/screens/services/provide_services2.dart';
+import 'package:tarek_proj/presentation/screens/services/provide_services3.dart';
 
 class ProvideServices extends StatefulWidget {
-  const ProvideServices({super.key});
+  final Map<String, dynamic> registrationData;
+
+  const ProvideServices({super.key, required this.registrationData});
 
   @override
   _ProvideServicesState createState() => _ProvideServicesState();
@@ -52,9 +55,11 @@ class _ProvideServicesState extends State<ProvideServices> {
 
   @override
   Widget build(BuildContext context) {
+    bool isProvider = widget.registrationData['serviceType'] == 'Provider';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Select Service"),
+        title: Text(isProvider ? "Select Service" : "Service Needed"),
         centerTitle: true,
       ),
       body: Container(
@@ -72,18 +77,22 @@ class _ProvideServicesState extends State<ProvideServices> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
-              const Text(
-                'Step 2-1: Choose a Service',
-                style: TextStyle(
+              Text(
+                isProvider
+                    ? 'Step 1 of 3: Choose Service'
+                    : 'Step 1 of 2: What do you need?',
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 22,
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Select the type of service you provide:',
-                style: TextStyle(
+              Text(
+                isProvider
+                    ? 'Select the type of service you provide:'
+                    : 'Select the service you are looking for:',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 17,
                 ),
@@ -112,10 +121,17 @@ class _ProvideServicesState extends State<ProvideServices> {
                                   serviceOptions.contains(service));
                             }
                           } else {
-                            if (isSelected) {
-                              selectedServices.remove(option);
-                            } else {
+                            if (!isProvider) {
+                              // Seeker - Single selection? Let's assume single for easier matching
+                              selectedServices.clear();
                               selectedServices.add(option);
+                            } else {
+                              // Provider - Multi selection allowed (or single based on requirements, let's allow multi for UI but backend might take first)
+                              if (isSelected) {
+                                selectedServices.remove(option);
+                              } else {
+                                selectedServices.add(option);
+                              }
                             }
                           }
                         });
@@ -144,7 +160,6 @@ class _ProvideServicesState extends State<ProvideServices> {
                   },
                 ),
               ),
-
               if (isOtherSelected)
                 Padding(
                   padding: const EdgeInsets.only(top: 15),
@@ -162,10 +177,7 @@ class _ProvideServicesState extends State<ProvideServices> {
                     ),
                   ),
                 ),
-
               const SizedBox(height: 20),
-
-              /// **Submit Button**
               Center(
                 child: ElevatedButton(
                   onPressed: () {
@@ -177,23 +189,37 @@ class _ProvideServicesState extends State<ProvideServices> {
                     if (selectedServices.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text("Please select at least one service."),
+                          content: Text("Please select a service."),
                         ),
                       );
                       return;
                     }
 
-                    print("Selected Services: $selectedServices");
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProvideServices2(
-                            // selectedTime: '',
-                            // selectedTimes: [],
-                            // selectedGender: '',
-                            ),
-                      ),
-                    );
+                    // Update Data
+                    String category = selectedServices.join(", ");
+                    if (isProvider) {
+                      widget.registrationData['provide_catagory'] = category;
+                      // Navigate to Vehicle Details (Step 2)
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProvideServices2(
+                            registrationData: widget.registrationData,
+                          ),
+                        ),
+                      );
+                    } else {
+                      widget.registrationData['looking_for_category'] =
+                          category;
+                      // Navigate to Address (Step 2 for Seeker - skipping Vehicle)
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProvideServices3(
+                              registrationData: widget.registrationData),
+                        ),
+                      );
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blueAccent,

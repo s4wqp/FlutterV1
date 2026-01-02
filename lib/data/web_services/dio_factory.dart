@@ -6,10 +6,9 @@ class DioFactory {
   static Dio getDio() {
     if (dio == null) {
       dio = Dio();
-      dio!.options.baseUrl =
-          "https://jsonplaceholder.typicode.com/"; // Placeholder URL
-      dio!.options.receiveTimeout = const Duration(seconds: 20);
-      dio!.options.connectTimeout = const Duration(seconds: 20);
+      dio!.options.baseUrl = "http://161.35.51.188:5001/api/";
+      dio!.options.receiveTimeout = const Duration(seconds: 60);
+      dio!.options.connectTimeout = const Duration(seconds: 60);
       dio!.options.headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -25,6 +24,9 @@ class DioFactory {
         error: true,
       ));
     }
+    // Force update timeouts in case of Hot Reload
+    dio!.options.receiveTimeout = const Duration(seconds: 300);
+    dio!.options.connectTimeout = const Duration(seconds: 300);
     return dio!;
   }
 }

@@ -2,6 +2,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:tarek_proj/presentation/screens/auth/Login.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tarek_proj/presentation/screens/home/HomePage.dart';
+
 import 'package:tarek_proj/presentation/screens/services/provide_services2.dart';
 
 void main() async {
@@ -20,7 +22,7 @@ void main() async {
         ),
       );
     }
-    SupabaseService.initialize();
+    await SupabaseService.initialize();
     runApp(MyApp());
   } catch (e) {
     print("Firebase Initialization Error: $e");
@@ -40,11 +42,13 @@ class SupabaseService {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: ProvideServices2(),
+      home: Homepage(),
     );
   }
 }
