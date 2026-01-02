@@ -477,7 +477,7 @@ class _ProvideServices4State extends State<ProvideServices4> {
           if (dataString.contains("Data too long") &&
               dataString.contains("user_password")) {
             errorMessage =
-                "Registration Failed: Password is too long. Please use a password of max 8 characters.";
+                "Registration Failed: Password is too long. Please use a password of max 12 characters.";
           } else {
             errorMessage =
                 "Server Error ${e.response?.statusCode}: $dataString";
