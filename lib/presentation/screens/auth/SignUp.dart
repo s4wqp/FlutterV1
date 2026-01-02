@@ -201,10 +201,11 @@ class _SignUpPageState extends State<SignUpPage> {
                   TextField(
                     controller: passController,
                     obscureText: _obscureTextPass,
-                    maxLength: 12, // Increased to 12 as requested
+                    maxLength:
+                        8, // RESTORED TO 8: Backend rejects 10 and 11 chars.
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.lock, color: Colors.indigo),
-                      hintText: 'Password (Max 12 chars)',
+                      hintText: 'Password (Max 8 chars)',
                       counterText: "", // Hide character counter
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15)),
@@ -226,7 +227,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   TextField(
                     controller: repassController,
                     obscureText: _obscureTextRePass,
-                    maxLength: 12,
+                    maxLength: 8,
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.lock, color: Colors.indigo),
                       hintText: 'Confirm Password',
