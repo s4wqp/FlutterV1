@@ -101,15 +101,11 @@ class _ChoiceState extends State<Choice> {
       );
     } else if (selectedOptions.contains("Looking for a service")) {
       widget.registrationData['serviceType'] = 'Seeker';
-      // Seekers skip vehicle/service-cat steps and go to Address (Step 3)
-      // Actually they go to ProvideServices3?
-      // Previous summary said: "Set serviceType to 'Seeker' and navigate directly to ProvideServices3 (Address)"
-      // But ProvideServices3 usually takes them to ProvideServices4...
-      // Let's verify ProvideServices3 logic later if needed, but for now replicate the "Seeker -> ProvideServices3" logic.
+      // Navigate to Category Selection (Step 1 for Seeker)
       Navigator.push(
         context,
         MaterialPageRoute(
-            builder: (context) => ProvideServices3(
+            builder: (context) => ProvideServices(
                   registrationData: widget.registrationData,
                 )),
       );

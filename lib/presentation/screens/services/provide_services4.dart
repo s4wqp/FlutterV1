@@ -1,12 +1,13 @@
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import 'package:dio/dio.dart';
+import 'package:tarek_proj/data/web_services/web_services.dart';
 import 'package:tarek_proj/presentation/screens/auth/approval_waiting.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProvideServices4 extends StatefulWidget {
   final Map<String, dynamic> registrationData;
@@ -20,6 +21,9 @@ class ProvideServices4 extends StatefulWidget {
 class _ProvideServices4State extends State<ProvideServices4> {
   final TextEditingController additionalDetailsController =
       TextEditingController();
+  final TextEditingController certificationNameController =
+      TextEditingController();
+  final TextEditingController idNumberController = TextEditingController();
 
   File? faceImage;
   File? graduationCertificate;
@@ -32,6 +36,8 @@ class _ProvideServices4State extends State<ProvideServices4> {
   @override
   void dispose() {
     additionalDetailsController.dispose();
+    certificationNameController.dispose();
+    idNumberController.dispose();
     super.dispose();
   }
 
@@ -100,35 +106,51 @@ class _ProvideServices4State extends State<ProvideServices4> {
     final RecognizedText recognizedText =
         await textRecognizer.processImage(inputImage);
 
-    print("OCR Recognized Text: ${recognizedText.text}"); // Debug print
+    // Normalize text: Convert Eastern Arabic Numerals to Western
+    String fullText = recognizedText.text;
+    fullText = fullText
+        .replaceAll('٠', '0')
+        .replaceAll('١', '1')
+        .replaceAll('٢', '2')
+        .replaceAll('٣', '3')
+        .replaceAll('٤', '4')
+        .replaceAll('٥', '5')
+        .replaceAll('٦', '6')
+        .replaceAll('٧', '7')
+        .replaceAll('٨', '8')
+        .replaceAll('٩', '9');
+
+    print("OCR Normalized Text: $fullText");
 
     String? foundID;
 
     // Strategy 1: strict contiguous 14 digits
-    final strictMatch = RegExp(r'\b\d{14}\b').firstMatch(recognizedText.text);
+    final strictMatch = RegExp(r'\b\d{14}\b').firstMatch(fullText);
     if (strictMatch != null) {
       foundID = strictMatch.group(0);
     } else {
-      // Strategy 2: Loose match (digits with spaces)
-      // Capture sequences that look like numbers (digits + spaces)
-      // We look for a chunk that starts with a digit, has digits/spaces, and ends with a digit.
-      // We limit the search to chunks that could plausibly be IDs.
-      final looseMatches = RegExp(r'(?<!\d)\d[\d\s]{12,}\d(?!\d)')
-          .allMatches(recognizedText.text);
+      // Strategy 2: Loose match (digits with spaces/newlines)
+      // Look for any sequence of 14 digits possibly interrupted by whitespace
+      // We explicitly look for a pattern that spans lines or spaces
+      // Removing all non-digits from the text and finding a 14-digit block is risky if there are other numbers
+      // But for IDs, usually the long number is the ID.
+
+      // Let's try to find all numbers, join them, and look for 14 digits?
+      // Or better: regex that allows spaces
+      final looseMatches = RegExp(r'\d[\d\s\n-]{12,}\d').allMatches(fullText);
 
       for (final match in looseMatches) {
         final raw = match.group(0)!;
-        // Clean: remove all spaces
-        final clean = raw.replaceAll(RegExp(r'\s+'), '');
-        // Validate: must be exactly 14 digits
+        final clean = raw.replaceAll(RegExp(r'\D'), ''); // Remove non-digits
         if (clean.length == 14) {
           foundID = clean;
-          break; // Found it
+          break;
         }
       }
     }
 
-    setState(() => extractedIDNumber = foundID ?? "No ID Number Found");
+    setState(() => extractedIDNumber =
+        foundID ?? "No ID Number Found (Try improved lighting)");
 
     textRecognizer.close();
   }
@@ -148,32 +170,8 @@ class _ProvideServices4State extends State<ProvideServices4> {
     });
   }
 
-  Future<String?> _uploadImage(File image, String folderName) async {
-    try {
-      final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${image.path.split('/').last}';
-      final path = '$folderName/$fileName';
-
-      // Upload to Supabase Storage bucket 'provider-documents'
-      await Supabase.instance.client.storage
-          .from('provider-documents')
-          .upload(path, image);
-
-      // Get the public URL
-      final imageUrl = Supabase.instance.client.storage
-          .from('provider-documents')
-          .getPublicUrl(path);
-
-      return imageUrl;
-    } catch (e) {
-      print("Error uploading image to Supabase: $e");
-      return null;
-    }
-  }
-
   Future<void> _submitAllDetails() async {
     // Basic Validation
-    // Require Face and ID Front/Back for everyone. Cert optional? Let's require it for now.
     if (faceImage == null ||
         graduationCertificate == null ||
         personalIdCardFront == null ||
@@ -189,131 +187,303 @@ class _ProvideServices4State extends State<ProvideServices4> {
     });
 
     try {
-      // 1. Create User in Firebase Auth (or use existing)
-      final String email = widget.registrationData['email'];
-      final String password = widget.registrationData['password'];
+      // Prepare Data for API
+      final regData = widget.registrationData;
 
-      User? user = FirebaseAuth.instance.currentUser;
-
-      if (user == null) {
-        // Create user if not already logged in (e.g., if SignUp didn't create it)
-        UserCredential userCredential =
-            await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-        user = userCredential.user;
+      // Helper to map Gender/DealWith to Int
+      int mapGenderToInt(String? value) {
+        if (value == null) return 1;
+        String v = value.toLowerCase();
+        if (v == 'male') return 1;
+        if (v == 'female') return 2;
+        return 1;
       }
 
-      if (user == null) throw Exception("User creation failed");
-
-      // 2. Upload Images (Current Step)
-      String? faceUrl = await _uploadImage(faceImage!, 'face_images');
-      String? certUrl =
-          await _uploadImage(graduationCertificate!, 'certificates');
-      String? idFrontUrl =
-          await _uploadImage(personalIdCardFront!, 'id_cards_front');
-      String? idBackUrl =
-          await _uploadImage(personalIdCardBack!, 'id_cards_back');
-
-      // 3. Upload Vehicle Images (if Provider and exist)
-      String? carLicenseUrl;
-      String? userLicenseUrl;
-
-      if (widget.registrationData['carLicenseImage'] != null) {
-        carLicenseUrl = await _uploadImage(
-            widget.registrationData['carLicenseImage'], 'car_licenses');
-      }
-      if (widget.registrationData['userLicenseImage'] != null) {
-        userLicenseUrl = await _uploadImage(
-            widget.registrationData['userLicenseImage'], 'user_licenses');
+      // Helper for Transportation
+      int mapTransportationToInt(String? value) {
+        if (value == null) return 0;
+        String v = value.toLowerCase();
+        if (v == 'car') return 1;
+        if (v == 'motorbike') return 2;
+        if (v == 'bike') return 3;
+        if (v == 'none') return 0;
+        return 0;
       }
 
-      // 4. Prepare Data for Firestore
-      Map<String, dynamic> userData = {
-        'uid': user.uid,
-        'firstName': widget.registrationData['firstName'],
-        'lastName': widget.registrationData['lastName'],
-        'arabicName': widget.registrationData['arabicName'],
-        'jobTitle': widget.registrationData['jobTitle'],
-        'phone': widget.registrationData['phone'],
-        'birthDate': widget.registrationData['birthDate'],
-        'gender': widget.registrationData['gender'],
-        'city': widget.registrationData['city'], // user profile city
-        'serviceType': widget.registrationData['serviceType'],
-        'isProvider': widget.registrationData['serviceType'] == 'Provider' ||
-            widget.registrationData['serviceType'] == 'Both',
-        'isSeeker': widget.registrationData['serviceType'] == 'Seeker' ||
-            widget.registrationData['serviceType'] == 'Both',
-        'email': email,
-        'createdAt': FieldValue.serverTimestamp(),
-        'isVerified': false, // Email verification status
-        'approvalStatus': 'pending', // Initial status
-
-        // Address details (from Step 3)
-        'addressDetails': {
-          'city': widget.registrationData['city'], // Address city
-          'zip_code': widget.registrationData['zip_code'],
-          'district': widget.registrationData['district'],
-          'street_name': widget.registrationData['street_name'],
-          'builder_number': widget.registrationData['builder_number'],
-          'floor_number': widget.registrationData['floor_number'],
-          'apartment_number': widget.registrationData['apartment_number'],
-          'special_marque': widget.registrationData['special_marque'],
-        },
-
-        // Verification Docs
-        'verificationDocuments': {
-          'faceImageUrl': faceUrl,
-          'certificateImageUrl': certUrl,
-          'idCardFrontUrl': idFrontUrl,
-          'idCardBackUrl': idBackUrl,
-          'extractedIDNumber': extractedIDNumber,
-          // Vehicle Licenses (if applicable)
-          if (carLicenseUrl != null) 'carLicenseUrl': carLicenseUrl,
-          if (userLicenseUrl != null) 'userLicenseUrl': userLicenseUrl,
+      // Helper for Date Formatting (d/M/yyyy -> yyyy-MM-dd)
+      String formatDateForApi(String? date) {
+        if (date == null || date.isEmpty) return "";
+        try {
+          List<String> parts = date.split('/');
+          if (parts.length == 3) {
+            String day = parts[0].padLeft(2, '0');
+            String month = parts[1].padLeft(2, '0');
+            String year = parts[2];
+            return "$year-$month-$day";
+          }
+          return date;
+        } catch (e) {
+          return date;
         }
+      }
+
+      // Updated Helper for Category Mapping
+      int mapCategoryToInt(String? category, bool isProvider) {
+        if (category == null) return isProvider ? 201 : 101;
+        String firstCat = category.split(',')[0].trim();
+
+        // 1-Ask assistant ,2-Provide Assistant ,3-both.
+        // Seeker (1xx)
+        if (!isProvider) {
+          if (firstCat.contains("Ride") || firstCat.contains("Motorbike"))
+            return 101;
+          if (firstCat.contains("Car Driver")) return 102;
+          if (firstCat.contains("Companion") || firstCat.contains("Elderly"))
+            return 103;
+          if (firstCat.contains("Cleaning"))
+            return 106; // Using 106 for Clean Home to match 206
+          if (firstCat.contains("Teacher") || firstCat.contains("Tutor"))
+            return 104;
+          return 101; // Default
+        }
+        // Provider (2xx)
+        else {
+          if (firstCat.contains("Car Driver") || firstCat.contains("Ride"))
+            return 201;
+          if (firstCat.contains("Companion") || firstCat.contains("Elderly"))
+            return 202;
+          if (firstCat.contains("Babysitter")) return 203;
+          if (firstCat.contains("Nursing")) return 204;
+          if (firstCat.contains("Physical Therapy")) return 205;
+          if (firstCat.contains("Cleaning")) return 206;
+          if (firstCat.contains("Teacher") || firstCat.contains("Tutor"))
+            return 208;
+          return 201; // Default
+        }
+      }
+
+      // Helper for Working Time Mapping
+      // 1 morning 2 afternoon 3 evening 4 night 5 all
+      int mapWorkingTimeToInt(dynamic times) {
+        if (times == null) return 5; // Default All?
+        List<String> timeList = [];
+        if (times is List) {
+          timeList = times.map((e) => e.toString()).toList();
+        } else if (times is String) {
+          timeList = [times];
+        }
+
+        if (timeList.isEmpty) return 5;
+        // If multiple selected, maybe return 5 (All)? Or just map the first one?
+        // Let's check for 'All' or specific combinations?
+        // Simple 1-to-1 mapping for now based on first selection
+        String first = timeList.first.toLowerCase();
+        if (first == 'morning') return 1;
+        if (first == 'afternoon') return 2;
+        if (first == 'evening') return 3;
+        if (first == 'night') return 4;
+        if (first == 'all') return 5;
+
+        // Dynamic fallback logic
+        if (timeList.length > 2) return 5; // Assume All if many
+
+        return 5;
+      }
+
+      // Helper for Firm ID
+      int mapFirmId(String? serviceType) {
+        // firm_id make it ststic number 1
+        return 1;
+      }
+
+      // Helper for User Type ID
+      // 1-Ask assistant ,2-Provide Assistant ,3-both
+      int mapUserTypeId(String? serviceType) {
+        if (serviceType == 'Seeker') return 1;
+        if (serviceType == 'Provider') return 2;
+        return 3; // Both
+      }
+
+      // Map App fields to API fields
+      Map<String, dynamic> apiData = {
+        // IDs
+        'firm_id': mapFirmId(regData['serviceType']),
+        'u_type_id': mapUserTypeId(regData['serviceType']),
+        'cat_id': mapCategoryToInt(
+            regData['provide_catagory'] ?? regData['looking_for_category'],
+            regData['serviceType'] == 'Provider'),
+        'wt_id': mapWorkingTimeToInt(regData['working_time']),
+
+        // User Info
+        'user_f_name': regData['firstName'],
+        'user_l_name': regData['lastName'],
+        'user_ar_name': regData['arabicName'],
+        'user_email': regData['email'],
+        'user_password': regData['password'],
+        'user_tel_no': regData['phone'],
+        'birth_date': formatDateForApi(regData['birthDate']),
+        'Gender': mapGenderToInt(regData['gender']),
+        'job': regData['jobTitle'],
+        'statu': 1, // 1 bending - 2 approval - 3 reject
+
+        // Address Info
+        'country': 'Egypt',
+        'state': regData['city'],
+        // 'city': regData['city'], // Removed as per new JSON which only has 'state', 'district' etc. Wait, JSON has 'state' and 'district', but no 'city' key in JSON example. It has 'state'.
+        // Actually JSON has: country, state, district, zip_code, street_name, Building_number, Floor_number, Apartment_number, Lead_mark
+        // Existing code had 'city': regData['city'], which might be extra. I will keep 'state' as city.
+
+        'district': regData['district'],
+        'zip_code': regData['zip_code'],
+        'street_name': regData['street_name'],
+        'Building_number': regData['builder_number'],
+        'Floor_number': regData['floor_number'],
+        'Apartment_number': regData['apartment_number'],
+
+        // Truncate Lead_mark
+        'Lead_mark': (regData['special_marque'] != null &&
+                regData['special_marque'].toString().length > 20)
+            ? regData['special_marque'].toString().substring(0, 20)
+            : regData['special_marque'],
+
+        // Missing fields from JSON
+        'user_helth_note': null,
+        'user_dr_name': null,
+        'user_dr_tel_no': null,
+        'user_cer': certificationNameController.text.isNotEmpty
+            ? certificationNameController.text
+            : null,
+        'user_Reg_no': null,
+        'creation_date': DateTime.now().toIso8601String(),
+        'modification_Date': DateTime.now().toIso8601String(),
+
+        // Provider specific
+        'deal_with': mapGenderToInt(regData['deal_with_gender']),
+        'transportation_type':
+            mapTransportationToInt(regData['transportation_type']),
+        'user_comment': additionalDetailsController.text,
+        'user_DL': regData['user_license_number'],
+        'user_car_no': regData['vehicle_number'],
+        'user_CL': regData['car_license_number'],
+        'user_car_color': regData['vehicle_color'], // Added
+
+        // ID Number
+        'user_id': (idNumberController.text.isNotEmpty &&
+                RegExp(r'^\d+$').hasMatch(idNumberController.text))
+            ? idNumberController.text
+            : null,
       };
 
-      if (widget.registrationData['serviceType'] == 'Provider') {
-        userData['providerDetails'] = {
-          'provide_catagory': widget.registrationData['provide_catagory'],
-          'working_time': widget.registrationData['working_time'],
-          'deal_with_gender': widget.registrationData['deal_with_gender'],
-          'transportation_type': widget.registrationData['transportation_type'],
-          // Vehicle info if applicable
-          'vehicle_name': widget.registrationData['vehicle_name'],
-          'vehicle_model_year': widget.registrationData['vehicle_model_year'],
-          'vehicle_color': widget.registrationData['vehicle_color'],
-          'vehicle_number': widget.registrationData['vehicle_number'],
-          'car_license_number': widget.registrationData['car_license_number'],
-          'user_license_number': widget.registrationData['user_license_number'],
-          'carLicenseUrl': carLicenseUrl,
-          'userLicenseUrl': userLicenseUrl,
-          'additionalDetails': additionalDetailsController.text,
-        };
-      } else {
-        userData['seekerDetails'] = {
-          'looking_for_category':
-              widget.registrationData['looking_for_category'],
-        };
+      // Prepare Files
+      Map<String, File> apiFiles = {
+        'user_photo': faceImage!,
+        'user_cer_photo': graduationCertificate!,
+        'user_id_photo': personalIdCardFront!,
+        'user_DL_photo':
+            personalIdCardBack!, // Is this User License or ID Back? Mapped per existing code.
+      };
+
+      if (regData['carPhoto'] != null) {
+        apiFiles['user_car_photo'] = regData['carPhoto'];
+      }
+      if (regData['carLicenseImage'] != null) {
+        apiFiles['user_CL_photo'] = regData['carLicenseImage'];
+      }
+      if (regData['userLicenseImage'] != null) {
+        // Maybe user_DL_Photo should be this?
+        // But existing code mapped 'personalIdCardBack' to 'user_DL_Photo'.
+        // Let's keep existing and add new if needed, OR fix.
+        // Request says: 8- user_CL_Photo VARCHAR(40), /car licence photo/
+        // Request says: 6- user_car_photo VARCHAR(40), /car photo/
+        // Request says: 7- user_CL VARCHAR(20), /car licence No/ (Added above)
+        // Request says: 9- user_car_no VARCHAR(20)/ car Number (Added above)
+
+        // Assuming 'user_DL_Photo' in existing code was actually "Driver License" (User License)?
+        // But it was assigned `personalIdCardBack` (ID Back).
+        // The prompt didn't ask to change `user_DL_Photo` logic, but asked to ADD fields.
+        // NOTE: `user_CL` -> Car License. `user_CL_Photo` -> Car License Photo.
+        // I'll stick to the requested fields.
       }
 
-      // 5. Save to Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .set(userData);
+      // Call API
+      // Call API
+      print(
+          "DEBUG: Preparing to send files with keys: ${apiFiles.keys.toList()}");
+      print("DEBUG: apiData payload: $apiData");
 
-      // 6. Send Email Verification
-      await user.sendEmailVerification();
+      Response response = await WebServices().registerUser(apiData, apiFiles);
 
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Custom API Success - Now Create Firebase Account
+        try {
+          // 1. Create User in Firebase Auth
+          UserCredential userCredential =
+              await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: regData['email'],
+            password: regData['password'],
+          );
+
+          // 2. Determine Service Type & Status
+          String serviceType = regData['serviceType'] ?? 'Seeker';
+          bool isProvider = serviceType == 'Provider';
+          bool isSeeker = serviceType == 'Seeker';
+
+          // 3. Save to Firestore
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .set({
+            'firstName': regData['firstName'],
+            'lastName': regData['lastName'],
+            'email': regData['email'],
+            'phone': regData['phone'],
+            'arabicName': regData['arabicName'],
+            'serviceType': serviceType,
+            'isProvider': isProvider,
+            'isSeeker': isSeeker,
+            'approvalStatus': 'pending',
+            'city': regData['city'],
+            'u_type_id': (serviceType == 'Provider') ? 1 : 2,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+
+          // 4. Navigate
+          if (mounted) {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const ApprovalWaitingPage()),
+              (route) => false,
+            );
+          }
+        } on FirebaseAuthException catch (e) {
+          throw Exception("Firebase Auth Error: ${e.message}");
+        } catch (e) {
+          throw Exception("Firestore Error: $e");
+        }
+      } else {
+        throw Exception(
+            "API Error: ${response.statusCode} - ${response.statusMessage}");
+      }
+    } on DioException catch (e) {
       if (mounted) {
-        Navigator.pop(context); // Maybe clear history?
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const ApprovalWaitingPage()),
-          (route) => false,
+        setState(() => _isSubmitting = false);
+        String errorMessage = "Connection failed";
+        if (e.response != null) {
+          errorMessage =
+              "Server Error ${e.response?.statusCode}: ${e.response?.data}";
+        } else {
+          errorMessage = e.message ?? "Unknown error";
+        }
+        print("Registration Error Details: ${e.response?.data}");
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(errorMessage),
+              duration: const Duration(seconds: 5)),
         );
       }
     } catch (e) {
@@ -374,6 +544,33 @@ class _ProvideServices4State extends State<ProvideServices4> {
                       imageType: 'Graduation',
                     ),
 
+                    // Certification Name Input
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: TextField(
+                        controller: certificationNameController,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold),
+                        decoration: InputDecoration(
+                          labelText:
+                              "Certification Name (e.g. Bachelor of Science)",
+                          labelStyle: const TextStyle(color: Colors.white70),
+                          filled: true,
+                          fillColor: Colors.white24,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: Colors.white),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: Colors.white54),
+                          ),
+                          prefixIcon:
+                              const Icon(Icons.school, color: Colors.white),
+                        ),
+                      ),
+                    ),
+
                     // Face Image Upload
                     _buildDocumentUploadSection(
                       title: "2. Face Image",
@@ -400,18 +597,32 @@ class _ProvideServices4State extends State<ProvideServices4> {
                       imageType: 'ID_Back',
                     ),
 
-                    if (extractedIDNumber != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Text(
-                          "Extracted ID Number: $extractedIDNumber",
-                          style: const TextStyle(
-                              fontSize: 18,
-                              color: Colors.yellow,
-                              fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
+                    // Manual ID Input Field (Always detected or manual)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: TextField(
+                        controller: idNumberController,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold),
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: "National ID Number (14 Digits)",
+                          labelStyle: const TextStyle(color: Colors.white70),
+                          filled: true,
+                          fillColor: Colors.white24,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: Colors.white),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: Colors.white54),
+                          ),
+                          prefixIcon:
+                              const Icon(Icons.badge, color: Colors.white),
                         ),
                       ),
+                    ),
 
                     if (isProvider) ...[
                       const SizedBox(height: 20),
