@@ -473,8 +473,15 @@ class _ProvideServices4State extends State<ProvideServices4> {
         setState(() => _isSubmitting = false);
         String errorMessage = "Connection failed";
         if (e.response != null) {
-          errorMessage =
-              "Server Error ${e.response?.statusCode}: ${e.response?.data}";
+          String dataString = e.response?.data.toString() ?? "";
+          if (dataString.contains("Data too long") &&
+              dataString.contains("user_password")) {
+            errorMessage =
+                "Registration Failed: Password is too long. Please use a shorter password (< 20 chars).";
+          } else {
+            errorMessage =
+                "Server Error ${e.response?.statusCode}: $dataString";
+          }
         } else {
           errorMessage = e.message ?? "Unknown error";
         }
