@@ -1,0 +1,19 @@
+
+URGENT BACKEND FIX REQUIRED
+
+Issue: "Data too long for column 'user_password' at row 1"
+Severity: Critical - Prevents ALL user registrations.
+Diagnosis: 
+1. The `user_password` column in the database is defined as `VARCHAR(16)`.
+2. The endpoint `/api/users` (or the internal logic) is performing a password hash (e.g., Bcrypt, SHA256) on the incoming password.
+3. Password hashes are typically long strings (e.g., Bcrypt is 60 characters).
+4. The generated hash (60 chars) > The column limit (16 chars).
+5. The Database rejects the insert.
+
+Solution:
+Execute the following SQL command on the database:
+
+ALTER TABLE users MODIFY user_password VARCHAR(255);
+
+Verification:
+After running this, the registration will work immediately with the existing App build.
