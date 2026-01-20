@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:dio/dio.dart';
 import 'dart:math';
+import 'package:tarek_proj/data/web_services/web_services.dart';
 
 class AddSponsorScreen extends StatefulWidget {
   const AddSponsorScreen({super.key});
@@ -309,7 +310,7 @@ class _AddSponsorScreenState extends State<AddSponsorScreen> {
 
       // 2. Submit to External API
       try {
-        final formData = FormData.fromMap({
+        final Map<String, dynamic> apiData = {
           "firm_id": 1,
           "sponsor_cat": _selectedCategory,
           "sponsor_name": _nameController.text,
@@ -331,33 +332,9 @@ class _AddSponsorScreenState extends State<AddSponsorScreen> {
           "sponsor_whatsapp_no": _placeWhatsappPhoneController.text,
           "statu": 1,
           "sponsor_Reg_no": null
-        });
+        };
 
-        // Trying 'files' as a common array name
-        // Re-enabled image upload with keys found in backend JSON: imag1_photo, imag2_photo, imag3_photo
-        for (int i = 0; i < _images.length; i++) {
-          if (i >= 3) break; // Backend only has 3 slots
-          final file = _images[i];
-          final fileName = file.path.split('/').last;
-          // Keys are imag1_photo, imag2_photo, imag3_photo
-          final String key = "imag${i + 1}_photo";
-
-          formData.files.add(MapEntry(
-            key,
-            await MultipartFile.fromFile(file.path, filename: fileName),
-          ));
-        }
-
-        final dio = Dio();
-        final response = await dio.post(
-          'http://161.35.51.188:5001/api/sponsors',
-          data: formData,
-          options: Options(
-            headers: {
-              // Content-Type is set automatically by FormData
-            },
-          ),
-        );
+        final response = await WebServices().addSponsor(apiData, _images);
 
         if (response.statusCode == 200 || response.statusCode == 201) {
           print("API Response: ${response.statusCode} - ${response.data}");

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +10,7 @@ import 'approval_waiting.dart';
 import 'package:tarek_proj/presentation/screens/home/Choice.dart';
 import 'package:tarek_proj/presentation/screens/home/HomePage.dart';
 import 'package:tarek_proj/presentation/screens/home/ServicesHomeScreen.dart';
+import 'package:tarek_proj/data/web_services/web_services.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -23,26 +23,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  final List<Map<String, String>> sponsors = [
-    {
-      "image": "images/amazon.png",
-      "android_url":
-          "https://play.google.com/store/apps/details?id=com.amazon.mShop.android.shopping",
-      "ios_url": "https://apps.apple.com/app/amazon-shopping/id297606951"
-    },
-    {
-      "image": "images/talabat.png",
-      "android_url":
-          "https://play.google.com/store/apps/details?id=com.talabat",
-      "ios_url": "https://apps.apple.com/app/talabat/id451001072"
-    },
-    {
-      "image": "images/uber.png",
-      "android_url":
-          "https://play.google.com/store/apps/details?id=com.ubercab",
-      "ios_url": "https://apps.apple.com/app/uber/id368677368"
-    },
-  ];
+  List<Map<String, dynamic>> sponsors = [];
 
   int currentIndex = 0;
   Timer? _timer;
@@ -51,14 +32,65 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
+    _fetchSponsors();
     // Rotate banner ads every 3 seconds
     _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (mounted) {
         setState(() {
-          currentIndex = (currentIndex + 1) % sponsors.length;
+          if (sponsors.isNotEmpty) {
+            currentIndex = (currentIndex + 1) % sponsors.length;
+          }
         });
       }
     });
+  }
+
+  Future<void> _fetchSponsors() async {
+    try {
+      final fetchedSponsors = await WebServices().getAllSponsors();
+      if (fetchedSponsors.isNotEmpty) {
+        if (mounted) {
+          // Filter to ensure elements are Maps and allow dynamic keys
+          final validSponsors =
+              fetchedSponsors.where((element) => element is Map).toList();
+
+          if (validSponsors.isNotEmpty) {
+            final List<Map<String, dynamic>> mappedSponsors = [];
+
+            for (var data in validSponsors) {
+              final mapData = data as Map;
+              String imageUrl =
+                  mapData['imag1_photo'] ?? mapData['image'] ?? '';
+
+              if (imageUrl.isNotEmpty) {
+                if (!imageUrl.startsWith('http')) {
+                  // Normalize path to prevent double slashes
+                  if (imageUrl.startsWith('/')) {
+                    imageUrl = imageUrl.substring(1);
+                  }
+                  // Prepend base URL
+                  imageUrl = "https://api.aidme.online/$imageUrl";
+                }
+
+                mappedSponsors.add({
+                  "image": imageUrl,
+                  "url": mapData['sponsor_web_site'] ?? '',
+                });
+              }
+            }
+
+            if (mounted) {
+              setState(() {
+                sponsors = mappedSponsors;
+                currentIndex = 0;
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching sponsors: $e");
+    }
   }
 
   @override
@@ -69,15 +101,16 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  // Function to launch Play Store or App Store
-  void _launchAppStore(String androidUrl, String iosUrl) async {
-    final String url = Platform.isAndroid ? androidUrl : iosUrl;
-    final uri = Uri.parse(url);
+  // Function to launch URL
+  void _launchURL(String? urlString) async {
+    if (urlString == null || urlString.isEmpty) return;
+    final uri = Uri.parse(urlString);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
       if (mounted) {
-        showErrorDialog("Error", "Could not launch $url");
+        // silently fail or show error
+        print("Could not launch $urlString");
       }
     }
   }
@@ -203,25 +236,44 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    String? currentImage = sponsors.isNotEmpty
+        ? sponsors[currentIndex]["image"]
+        : "images/amazon.png"; // Default fallback to Amazon
+
+    // Extra safety: ensure we never pass an empty string to Image.asset
+    if (currentImage == null || currentImage.isEmpty) {
+      currentImage = "images/amazon.png";
+    }
+
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(120),
         child: GestureDetector(
           onTap: () {
-            _launchAppStore(
-              sponsors[currentIndex]["android_url"]!,
-              sponsors[currentIndex]["ios_url"]!,
-            );
+            if (sponsors.isNotEmpty) {
+              _launchURL(sponsors[currentIndex]["url"]);
+            }
           },
-          child: Container(
+          child: SizedBox(
             width: double.infinity,
             height: 200,
-            decoration: BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage(sponsors[currentIndex]["image"]!),
-                fit: BoxFit.cover,
-              ),
-            ),
+            child: (currentImage.startsWith('http'))
+                ? Image.network(
+                    currentImage,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset("images/amazon.png",
+                          fit: BoxFit.cover);
+                    },
+                  )
+                : Image.asset(
+                    currentImage,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset("images/amazon.png",
+                          fit: BoxFit.cover);
+                    },
+                  ),
           ),
         ),
       ),

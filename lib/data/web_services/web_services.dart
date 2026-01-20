@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'dart:io';
 import 'dio_factory.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 class WebServices {
   late Dio dio;
@@ -30,18 +31,64 @@ class WebServices {
     }
   }
 
+  Future<File> _compressFile(File file) async {
+    try {
+      final filePath = file.absolute.path;
+      final lastIndex = filePath.lastIndexOf('.');
+      String splitted = filePath;
+      if (lastIndex != -1) {
+        splitted = filePath.substring(0, lastIndex);
+      }
+      final outPath =
+          "${splitted}_out${DateTime.now().millisecondsSinceEpoch}.jpg";
+
+      var result = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path,
+        outPath,
+        quality: 25, // Reduced quality to avoid 502 Payload Too Large
+        minWidth: 1024, // Resize validation
+        minHeight: 1024,
+        format: CompressFormat.jpeg,
+      );
+
+      print('Original size: ${file.lengthSync()}');
+      if (result != null) {
+        File compressedFile = File(result.path);
+        print('Compressed size: ${compressedFile.lengthSync()}');
+        return compressedFile;
+      }
+      return file;
+    } catch (e) {
+      print("Compression error: $e");
+      return file;
+    }
+  }
+
   Future<Response> registerUser(
       Map<String, dynamic> data, Map<String, File> files) async {
     try {
-      FormData formData = FormData.fromMap(data);
+      // 1. Sanitize Data: Remove nulls and convert generic types to String where appropriate
+      // This prevents "null" string being sent or backend crashing on unexpected types
+      Map<String, dynamic> sanitizedData = {};
+      data.forEach((key, value) {
+        if (value != null) {
+          sanitizedData[key] = value;
+        }
+      });
+
+      FormData formData = FormData.fromMap(sanitizedData);
 
       for (var entry in files.entries) {
         String key = entry.key;
         File file = entry.value;
+
+        // Compress image
+        File compressedFile = await _compressFile(file);
+
         // Use minimal filename length (e.g., "1.jpg", "2.jpg") to avoid DB limit
         // The previous attempt (key.ext) resulted in ~17 chars which was too long for 'user_id_photo' column.
         int index = files.keys.toList().indexOf(key);
-        String ext = file.path.split('.').last;
+        String ext = compressedFile.path.split('.').last; // Should be jpg now
         if (ext.length > 4) ext = 'jpg';
         String fileName = "${index + 1}.$ext";
 
@@ -50,14 +97,98 @@ class WebServices {
 
         formData.files.add(MapEntry(
           key,
-          await MultipartFile.fromFile(file.path, filename: fileName),
+          await MultipartFile.fromFile(compressedFile.path, filename: fileName),
         ));
       }
 
+      // Explicitly remove content-type so Dio generates the correct boundary for Multipart
+      dio.options.headers.remove('Content-Type');
+
       Response response = await dio.post('users', data: formData);
+
+      // Restore JSON content type for other requests
+      dio.options.headers['Content-Type'] = 'application/json';
+
       return response;
     } catch (e) {
       print("Register User Error: $e");
+      // Ensure header is restored even on error
+      dio.options.headers['Content-Type'] = 'application/json';
+      rethrow;
+    }
+  }
+
+  Future<List<dynamic>> getAllSponsors() async {
+    try {
+      Response response = await dio.get('sponsors');
+      if (response.statusCode == 200) {
+        if (response.data is Map && response.data.containsKey('data')) {
+          return response.data['data'];
+        } else if (response.data is List) {
+          return response.data;
+        }
+      }
+      return [];
+    } catch (e) {
+      print("Get Sponsors Error: $e");
+      return [];
+    }
+  }
+
+  Future<Response> addSponsor(
+      Map<String, dynamic> data, List<File> images) async {
+    // List of files to cleanup
+    List<File> processedFiles = [];
+
+    try {
+      FormData formData = FormData.fromMap(data);
+
+      for (int i = 0; i < images.length; i++) {
+        if (i >= 3) break;
+        final file = images[i];
+
+        // Compress image
+        File compressedFile = await _compressFile(file);
+        processedFiles.add(compressedFile); // Keep track to maybe delete later?
+
+        final fileName = compressedFile.path.split('/').last;
+        final String key = "imag${i + 1}_photo";
+
+        formData.files.add(MapEntry(
+          key,
+          await MultipartFile.fromFile(compressedFile.path, filename: fileName),
+        ));
+      }
+
+      // Try plural 'sponsors'
+      try {
+        Response response = await dio.post('sponsors', data: formData);
+        return response;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) {
+          print("404 on 'sponsors', trying 'sponsor'...");
+          // You cannot reuse FormData! It gets closed/read. We must recreate it.
+
+          FormData retryFormData = FormData.fromMap(data);
+          for (int i = 0; i < processedFiles.length; i++) {
+            // Reuse compressed files
+            File file = processedFiles[i];
+            final fileName = file.path.split('/').last;
+            final String key = "imag${i + 1}_photo";
+            retryFormData.files.add(MapEntry(
+              key,
+              await MultipartFile.fromFile(file.path, filename: fileName),
+            ));
+          }
+
+          Response retryResponse =
+              await dio.post('sponsor', data: retryFormData);
+          return retryResponse;
+        }
+        rethrow;
+      }
+    } catch (e) {
+      print("Add Sponsor Error: $e");
       rethrow;
     }
   }
